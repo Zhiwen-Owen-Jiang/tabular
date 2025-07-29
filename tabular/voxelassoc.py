@@ -218,7 +218,7 @@ class VoxelAssoc:
 
         """
         voxel_beta = np.zeros(
-            (np.sum(self.snp_idxs), len(voxel_idxs)), dtype=np.float32
+            (np.sum(self.idxs), len(voxel_idxs)), dtype=np.float32
         )
         data_reader = self.ldr_sumstats.data_reader(
             "beta", self.ldr_idxs, self.idxs, all_file=False
@@ -264,13 +264,13 @@ class VoxelAssoc:
             voxel_beta += voxel_beta_batch
 
 
-def voxel_reader(n_snps, voxel_list, log=None):
+def voxel_reader(n_variables, voxel_list, log=None):
     """
     Doing voxel GWAS in batch, each block less than 3 GB
 
     """
     n_voxels = len(voxel_list)
-    memory_use = n_snps * n_voxels * np.dtype(np.float32).itemsize / (1024**3)
+    memory_use = n_variables * n_voxels * np.dtype(np.float32).itemsize / (1024**3)
     if memory_use <= 3:
         batch_size = n_voxels
     else:
@@ -282,12 +282,12 @@ def voxel_reader(n_snps, voxel_list, log=None):
         yield voxel_list[i : i + batch_size]
 
 
-def write_header(snp_info, outpath):
+def write_header(info, outpath):
     """
     Writing output header
 
     """
-    output_header = snp_info.head(0).copy()
+    output_header = info.head(0).copy()
     output_header.insert(0, "INDEX", None)
     output_header["BETA"] = None
     output_header["SE"] = None
@@ -374,8 +374,8 @@ def process_voxels(
             future_to_idx[result] = i
 
         for future in concurrent.futures.as_completed(future_to_idx):
-            i, sig_snps_output = future.result()
-            results_dict[i] = sig_snps_output
+            i, sig_output = future.result()
+            results_dict[i] = sig_output
             while next_write_i in results_dict:
                 if results_dict[next_write_i] is not None:
                     with open(outpath, "a") as file:

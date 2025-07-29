@@ -133,6 +133,10 @@ def check_header(openfunc, compression, dir):
     compression: how the data is compressed
     dir: diretory to the dataset
 
+    Returns:
+    ---------
+    header: a list of column names, excluding FID and IID
+
     """
     with openfunc(dir, "r") as file:
         header = file.readline().split()
@@ -147,4 +151,4 @@ def check_header(openfunc, compression, dir):
     if len(header) != len(set(header)):
         raise ValueError("duplicated column names are not allowed")
 
-    return header[:2]
+    return header[2:]

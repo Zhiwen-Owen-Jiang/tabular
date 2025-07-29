@@ -4,12 +4,17 @@ import logging
 import math
 import numpy as np
 import pandas as pd
+import input.dataset as ds
 
 
 def check_input(args, log):
     # required arguments
-    if args.ldr_assoc is None:
-        raise ValueError("--ldr-assoc is required")
+    if args.ldr_raw_sumstats is None:
+        raise ValueError("--ldr-raw-sumstats is required")
+
+    args.ldr_raw_sumstats = ds.parse_input(args.ldr_raw_sumstats)
+    for file in args.ldr_raw_sumstats:
+        ds.check_existence(file)
     
 
 def map_cols():
@@ -284,7 +289,7 @@ class ProcessSumstats:
             f"{self.out_dir}.info", sep="\t", index=None, na_rep="NA", float_format="%.3e"
         )
 
-    def process(self, threads, is_valid=None, info=None):
+    def process(self, is_valid=None, info=None):
         """
         Processing LDR association summary statistics.
 
@@ -292,7 +297,7 @@ class ProcessSumstats:
         if is_valid is None and info is None:
             self.logger.info(
                 (
-                    f"Reading and processing {self.n_files} LDR association summary statistics files. "
+                    f"Reading and processing {self.n_files} LDR association summary statistics file(s). "
                     "Only the first file will be QCed ..."
                 )
             )
@@ -305,7 +310,7 @@ class ProcessSumstats:
         for i, file in enumerate(self.files):
             if i == self.n_files - 1:
                 is_last_file = True
-            self._read_save(is_valid, file, is_last_file, threads)
+            self._read_save(is_valid, file, is_last_file)
 
         return is_valid, info
         
@@ -364,7 +369,7 @@ class ProcessSumstats:
         """
         data = pd.read_parquet(
             file,
-            columns=["variable" "n_called"],
+            columns=["variable", "n_called"],
             engine="pyarrow",
         )
         data = data.rename(self.cols_map2, axis=1)
@@ -377,9 +382,9 @@ def run(args, log):
     cols_map, cols_map2 = map_cols()
 
     sumstats = ProcessSumstats(
-            args.ldr_assoc, cols_map, cols_map2, args.out,
+            args.ldr_raw_sumstats, cols_map, cols_map2, args.out,
         )
-    sumstats.process(args.threads)
+    sumstats.process()
 
     log.info(f"\nSaved the processed summary statistics to {args.out}.sumstats")
     log.info(f"Saved the summary statistics information to {args.out}.info")

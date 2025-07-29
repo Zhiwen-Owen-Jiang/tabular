@@ -140,22 +140,22 @@ class DoAnalysis:
 
         Returns:
         ---------
-        gwas: gwas results in hail.Table
+        results: results in hail.Table
 
         """
         pheno_list = [mt.ldrs[i] for i in range(self.n_ldrs)]
         covar_list = [mt.covar[i] for i in range(self.n_covar)]
 
-        gwas = hl.linear_regression_rows(
+        results = hl.linear_regression_rows(
             y=pheno_list,
             x=mt.value,
             covariates=covar_list,
             pass_through=[mt.n_called, mt.variable],
         )
 
-        gwas = gwas.key_by()
-        gwas = gwas.drop(*["y_transpose_x", "sum_x"])
-        gwas = gwas.select(
+        results = results.key_by()
+        results = results.drop(*["y_transpose_x", "sum_x"])
+        results = results.select(
             "variable",
             "n_called",
             "beta",
@@ -164,39 +164,39 @@ class DoAnalysis:
             "p_value",
         )
         # TODO: 12:26am, get n_called when generating mt.
-        # need to add an option in sumstats and voxel-gwas
+        # need to add an option in sumstats and voxel-results
 
-        gwas = self._post_process(gwas)
+        results = self._post_process(results)
 
-        return gwas
+        return results
 
-    def _post_process(self, gwas):
+    def _post_process(self, results):
         """
         Removing SNPs with any missing or infinity values.
         This step is originally done in sumstats.py.
         However, pandas is not convenient to handle nested arrays.
 
         """
-        gwas = gwas.filter(
+        results = results.filter(
             ~(
-                hl.any(lambda x: hl.is_missing(x) | hl.is_infinite(x), gwas.beta)
+                hl.any(lambda x: hl.is_missing(x) | hl.is_infinite(x), results.beta)
                 | hl.any(
-                    lambda x: hl.is_missing(x) | hl.is_infinite(x), gwas.standard_error
+                    lambda x: hl.is_missing(x) | hl.is_infinite(x), results.standard_error
                 )
-                | hl.any(lambda x: hl.is_missing(x) | hl.is_infinite(x), gwas.t_stat)
-                | hl.any(lambda x: hl.is_missing(x) | hl.is_infinite(x), gwas.p_value)
+                | hl.any(lambda x: hl.is_missing(x) | hl.is_infinite(x), results.t_stat)
+                | hl.any(lambda x: hl.is_missing(x) | hl.is_infinite(x), results.p_value)
             )
         )
 
-        return gwas
+        return results
 
     def save(self, out_path):
         """
-        Saving GWAS results as a parquet file
+        Saving results as a parquet file
 
         """
-        self.gwas = self.gwas.to_spark()
-        self.gwas.write.mode("overwrite").parquet(f"{out_path}.parquet")
+        self.results = self.results.to_spark()
+        self.results.write.mode("overwrite").parquet(f"{out_path}.parquet")
 
 
 def run(args, log):
@@ -239,13 +239,13 @@ def run(args, log):
             f"{covar.data.shape[1]} fixed effects in the covariates (including the intercept)."
         )
 
-        # gwas
+        # assoc analysis
         temp_path = get_temp_path(args.out)
         mt_processor.cache()
-        gwas = DoAnalysis(mt_processor, ldrs.data, covar.data, temp_path)
+        results = DoAnalysis(mt_processor, ldrs.data, covar.data, temp_path)
 
-        # save gwas results
-        gwas.save(args.out)
+        # save results
+        results.save(args.out)
         log.info(f"\nSaved association results to {args.out}.parquet")
     finally:
         if "temp_path" in locals():

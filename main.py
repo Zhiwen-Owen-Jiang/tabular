@@ -188,7 +188,7 @@ make_mt_parser.add_argument(
 
 # arguments for sumstats.py
 sumstats_parser.add_argument(
-    "--ldr-assoc",
+    "--ldr-raw-sumstats",
     help=(
         "Directory to raw LDR association summary statistics files. "
         "Multiple files can be provided using {:}, e.g., `ldr_assoc{1:10}.txt`, "
@@ -205,6 +205,7 @@ def check_accepted_args(module, args, log):
     accepted_args = {
         "make_mt": {
             "out",
+            "make_mt",
             "tabular_txt",
             "keep",
             "remove",
@@ -212,6 +213,7 @@ def check_accepted_args(module, args, log):
         },
         "ldr_assoc": {
             "out",
+            "ldr_assoc",
             "tabular_mt",
             "ldr_col",
             "n_ldrs",
@@ -225,8 +227,7 @@ def check_accepted_args(module, args, log):
         "sumstats": {
             "out",
             "sumstats",
-            "ldr_assoc",
-            "threads",
+            "ldr_raw_sumstats",
         },
         "voxel_assoc": {
             "out",
@@ -328,7 +329,7 @@ def main(args, log):
     elif args.voxel_assoc:
         check_accepted_args("voxel_assoc", args, log)
         import tabular.voxelassoc as module
-    elif args.gwas:
+    elif args.ldr_assoc:
         check_accepted_args('ldr_assoc', args, log)
         import tabular.tabular as module
     elif args.make_mt:

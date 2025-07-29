@@ -55,4 +55,7 @@ def run(args, log):
             
         log.info(f"Saved MatrixTable of tabular data at {args.out}.mt")
     finally:
+        if "temp_path" in locals():
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
         clean(args.out)
