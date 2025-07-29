@@ -23,7 +23,7 @@ def map_cols():
 
     """
     cols_map = dict()
-    cols_map["VARIABLE"] = "data"
+    cols_map["VARIABLE"] = "variable"
     cols_map["N"] = "n_called"
     cols_map["EFFECT"] = "beta"
     cols_map["null_value"] = 0
@@ -364,7 +364,7 @@ class ProcessSumstats:
         """
         data = pd.read_parquet(
             file,
-            columns=["data" "n_called"],
+            columns=["variable" "n_called"],
             engine="pyarrow",
         )
         data = data.rename(self.cols_map2, axis=1)

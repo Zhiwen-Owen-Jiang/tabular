@@ -150,12 +150,13 @@ class DoAnalysis:
             y=pheno_list,
             x=mt.value,
             covariates=covar_list,
-            pass_through=[mt.n_called],
+            pass_through=[mt.n_called, mt.variable],
         )
 
         gwas = gwas.key_by()
         gwas = gwas.drop(*["y_transpose_x", "sum_x"])
         gwas = gwas.select(
+            "variable",
             "n_called",
             "beta",
             "standard_error",

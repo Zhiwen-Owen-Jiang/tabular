@@ -319,32 +319,6 @@ def remove_idxs(idx1, idx2, single_id=False):
     return idx
 
 
-def read_geno_part(dir):
-    """
-    Reading a genome partition file
-
-    """
-    _, compression = utils.check_compression(dir)
-    genome_part = pd.read_csv(
-        dir, header=None, sep="\s+", usecols=[0, 1, 2], compression=compression
-    )
-    if not (genome_part[0] % 1 == 0).all():
-        raise TypeError(
-            (
-                "the 1st column in the genome partition file must be integers. "
-                "Check if a header is included and/or if chromosome X/Y is included"
-            )
-        )
-    if not ((genome_part[1] % 1 == 0) & (genome_part[2] % 1 == 0)).all():
-        raise TypeError(
-            ("the 2nd and 3rd columns in the genome partition file must be integers")
-        )
-    # if not (genome_part.groupby(0)[1].diff().iloc[1:] > 0).all() or not (genome_part.groupby(0)[2].diff().iloc[1:] > 0).all():
-    #     raise ValueError('the LD blocks must be in ascending order')
-
-    return genome_part
-
-
 def read_keep(keep_files):
     """
     Extracting common subject IDs from multiple files
@@ -437,108 +411,6 @@ def read_remove(remove_files):
     return remove_idvs_
 
 
-def read_extract(extract_files, locus=False):
-    """
-    Extracting common SNPs from multiple files
-    All files are confirmed to exist
-    Empty files are skipped without error/warning
-    Error out if no common SNPs exist
-
-    Parameters:
-    ------------
-    extract_files: a list of tab/white-delimited files
-    locus: if variants are indexed by locus (chr:pos)
-
-    Returns:
-    ---------
-    keep_snp_: pd.DataFrame of common SNPs
-
-    """
-    if locus:
-        data_type = "locus"
-    else:
-        data_type = "SNP"
-        
-    keep_snps_ = None
-    for i, extract_file in enumerate(extract_files):
-        if os.path.getsize(extract_file) == 0:
-            continue
-        _, compression = utils.check_compression(extract_file)
-        keep_snps = pd.read_csv(
-            extract_file,
-            sep="\s+",
-            header=None,
-            usecols=[0],
-            names=[data_type],
-            compression=compression,
-        )
-        if i == 0:
-            keep_snps_ = keep_snps.copy()
-        else:
-            keep_snps_ = keep_snps_.merge(keep_snps)
-
-    if keep_snps_ is None or len(keep_snps_) == 0:
-        raise ValueError("no variants are common in --extract")
-    if not pd.api.types.is_object_dtype(keep_snps_[data_type]):
-        raise TypeError(
-            "invalid variants in --extract. Did you input other data in the first column?"
-        )
-
-    return keep_snps_
-
-
-def read_exclude(exclude_files, locus=False):
-    """
-    Excluding SNPs from multiple files
-    All files are confirmed to exist
-    Empty files are skipped without error/warning
-    Error out if no common SNPs exist
-
-    Parameters:
-    ------------
-    exclude_files: a list of tab/white-delimited files
-    locus: if variants are indexed by locus (chr:pos)
-
-    Returns:
-    ---------
-    exclude_snp_: pd.DataFrame of SNPs
-
-    """
-    if locus:
-        data_type = "locus"
-    else:
-        data_type = "SNP"
-
-    exclude_snps_ = None
-    for i, exclude_file in enumerate(exclude_files):
-        if os.path.getsize(exclude_file) == 0:
-            continue
-        _, compression = utils.check_compression(exclude_file)
-        exclude_snps = pd.read_csv(
-            exclude_file,
-            sep="\s+",
-            header=None,
-            usecols=[0],
-            names=[data_type],
-            compression=compression,
-        )
-        if i == 0:
-            exclude_snps_ = exclude_snps.copy()
-        else:
-            exclude_snps_ = pd.concat([exclude_snps_, exclude_snps], axis=0)
-    
-    if exclude_snps_ is None or len(exclude_snps_) == 0:
-        raise ValueError("no variants in --exclude")
-
-    exclude_snps_ = exclude_snps_.drop_duplicates()
-    if not pd.api.types.is_object_dtype(exclude_snps_[data_type]):
-        raise TypeError(
-            "invalid variants in --exclude. Did you input other data in the first column?"
-        )
-
-    return exclude_snps_
-
-
 def read_voxel(voxel_file):
     """
     Reading a list of one-based voxels
@@ -610,7 +482,7 @@ def parse_input(arg):
     return output
 
 
-def keep_ldrs(n_ldrs, bases=None, ldr_cov=None, ldr_gwas=None, resid_ldrs=None):
+def keep_ldrs(n_ldrs, bases=None, ldr_cov=None, ldr_sumstats=None, resid_ldrs=None):
     """
     Extracting a specific number of LDRs
 
@@ -618,7 +490,7 @@ def keep_ldrs(n_ldrs, bases=None, ldr_cov=None, ldr_gwas=None, resid_ldrs=None):
     ------------
     bases: a np.array
     ldr_cov: a np.array
-    ldr_gwas: a GWAS instance
+    ldr_sumstats: a Sumstats instance
     resid_ldrs: a pd.DataFrame
 
     """
@@ -634,18 +506,18 @@ def keep_ldrs(n_ldrs, bases=None, ldr_cov=None, ldr_gwas=None, resid_ldrs=None):
             )
         else:
             ldr_cov = ldr_cov[:n_ldrs, :n_ldrs]
-    if ldr_gwas is not None:
-        if ldr_gwas.n_gwas < n_ldrs:
+    if ldr_sumstats is not None:
+        if ldr_sumstats.n_files < n_ldrs:
             raise ValueError("LDRs in summary statistics less than --n-ldrs")
         else:
-            ldr_gwas.n_gwas = n_ldrs
+            ldr_sumstats.n_files = n_ldrs
     if resid_ldrs is not None:
         if resid_ldrs.shape[1] < n_ldrs:
             raise ValueError("LDRs less than --n-ldrs")
         else:
             resid_ldrs = resid_ldrs.iloc[:, :n_ldrs]
 
-    return bases, ldr_cov, ldr_gwas, resid_ldrs
+    return bases, ldr_cov, ldr_sumstats, resid_ldrs
 
 
 def check_existence(arg, suffix=""):
@@ -655,110 +527,3 @@ def check_existence(arg, suffix=""):
     """
     if arg is not None and not os.path.exists(f"{arg}{suffix}"):
         raise FileNotFoundError(f"{arg}{suffix} does not exist")
-
-
-def read_variant_sets(file):
-    variant_sets = pd.read_csv(file, sep="\s+", header=None)
-    try:
-        chr_interval = variant_sets.iloc[0, 1]
-        start, end = chr_interval.split("-")
-        start_chr, start_pos = [int(x) for x in start.split(":")]
-        end_pos = int(end)
-    except:
-        raise ValueError("variant sets should be in format `chr:start-end`")
-
-    return variant_sets
-
-
-def read_ld_list(prefix_list):
-    """
-    Read LD scores from a list of prefixes; usually for cell type analysis
-    
-    """
-    merged_ref_ld = None
-    merged_annot_names = list()
-    for prefix in prefix_list:
-        ref_ld, annot_names = read_ld(prefix, read_name=True)
-        if merged_ref_ld is None:
-            merged_ref_ld = ref_ld.copy()
-        else:
-            merged_ref_ld = merged_ref_ld.merge(ref_ld, on="SNP")
-        merged_annot_names.extend(annot_names)
-
-    return merged_ref_ld, merged_annot_names
-
-
-def read_ld(prefix, read_name=False):
-    """
-    Read LD scores by chr; can read reference LD or regression LD
-    
-    """
-    ref_ld = list()
-    for i in range(1, 23):
-        ref_ld_chr = pd.read_csv(f"{prefix}{i}.l2.ldscore.gz", sep="\t", compression="gzip")
-        del ref_ld_chr["CHR"]
-        del ref_ld_chr["BP"]
-        ref_ld.append(ref_ld_chr)
-    ref_ld = pd.concat(ref_ld)
-    if read_name:
-        annot_names = list(ref_ld.columns[1:])
-    else:
-        annot_names = None
-    return ref_ld, annot_names
-
-
-def read_M(prefix_list, common=True):
-    """
-    Read number of variants for each LDR
-    
-    """
-    M = list()
-    for i in range(1, 23):
-        M_chr_list = list()
-        for prefix in prefix_list:
-            if common:
-                M_chr = np.loadtxt(f"{prefix}{i}.l2.M_5_50", dtype=np.int64)
-            else:
-                M_chr = np.loadtxt(f"{prefix}{i}.l2.M", dtype=np.int64)
-            M_chr_list.append(M_chr)
-        M_chr = np.hstack(M_chr_list)
-        M.append(M_chr)
-    M = np.array(M).sum(axis=0)
-
-    return M
-
-
-def read_ld_annot(prefix_list, frqfile_prefix):
-    """
-    Read binary LD annotation matrix
-    
-    """
-    overlap_matrix = list()
-    M_tot = 0
-
-    for i in range(1, 23):
-        overlap_matrix_chr_list = list()
-        for prefix in prefix_list:
-            overlap_matrix_chr = pd.read_csv(
-                f"{prefix}{i}.annot.gz", sep="\t", compression="gzip"
-            )
-            cols_to_del = list()
-            for col in ["CHR", "BP", "SNP", "CM"]:
-                if col in overlap_matrix_chr.columns:
-                    cols_to_del.append(col)
-            overlap_matrix_chr = overlap_matrix_chr.drop(cols_to_del, axis=1)
-            overlap_matrix_chr_list.append(overlap_matrix_chr.values)
-        overlap_matrix_chr = np.hstack(overlap_matrix_chr_list)
-        frq_chr = pd.read_csv(
-            f"{frqfile_prefix}{i}.frq", sep="\s+", usecols=["MAF"]
-        ).values.flatten()
-        overlap_matrix_chr = overlap_matrix_chr[
-            (frq_chr > 0.05) & (frq_chr < 0.95)
-        ]
-        M_tot += overlap_matrix_chr.shape[0]
-        overlap_matrix_chr = csc_matrix(overlap_matrix_chr)
-        overlap_matrix_chr = overlap_matrix_chr.T @ overlap_matrix_chr
-        overlap_matrix.append(overlap_matrix_chr.toarray())
-    overlap_matrix = np.sum(np.array(overlap_matrix), axis=0).astype(np.float64)
-    
-    return overlap_matrix, M_tot
